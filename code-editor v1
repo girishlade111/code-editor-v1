@@ -1,0 +1,304 @@
+import { useState, useRef, useEffect } from 'react';
+import { Button } from "/components/ui/button";
+import { Card } from "/components/ui/card";
+import { Menu, X, File, Folder, Save, Moon, Sun } from 'lucide-react';
+
+type FileType = {
+  id: string;
+  name: string;
+  content: string;
+  language: string;
+};
+
+type FolderType = {
+  id: string;
+  name: string;
+  files: FileType[];
+  folders: FolderType[];
+};
+
+export default function CodeEditor() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [activeFile, setActiveFile] = useState<FileType | null>(null);
+  const [files, setFiles] = useState<FileType[]>([]);
+  const [folders, setFolders] = useState<FolderType[]>([]);
+  const [editorContent, setEditorContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize with sample files
+  useEffect(() => {
+    const sampleFiles: FileType[] = [
+      {
+        id: '1',
+        name: 'index.html',
+        content: '<!DOCTYPE html>\n<html>\n<head>\n  <title>My App</title>\n</head>\n<body>\n  <div id="root"></div>\n</body>\n</html>',
+        language: 'html'
+      },
+      {
+        id: '2',
+        name: 'styles.css',
+        content: 'body {\n  margin: 0;\n  padding: 0;\n  font-family: sans-serif;\n}',
+        language: 'css'
+      },
+      {
+        id: '3',
+        name: 'app.js',
+        content: 'function App() {\n  return (\n    <div className="App">\n      <h1>Hello World</h1>\n    </div>\n  );\n}',
+        language: 'javascript'
+      }
+    ];
+
+    const sampleFolders: FolderType[] = [
+      {
+        id: '1',
+        name: 'src',
+        files: [],
+        folders: []
+      },
+      {
+        id: '2',
+        name: 'public',
+        files: [],
+        folders: []
+      }
+    ];
+
+    setFiles(sampleFiles);
+    setFolders(sampleFolders);
+    setActiveFile(sampleFiles[0]);
+    setEditorContent(sampleFiles[0].content);
+  }, []);
+
+  const handleFileClick = (file: FileType) => {
+    setActiveFile(file);
+    setEditorContent(file.content);
+  };
+
+  const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditorContent(e.target.value);
+    if (activeFile) {
+      setFiles(files.map(f => 
+        f.id === activeFile.id ? { ...f, content: e.target.value } : f
+      ));
+    }
+  };
+
+  const handleSave = () => {
+    if (!activeFile) return;
+    const updatedFiles = files.map(f => 
+      f.id === activeFile.id ? { ...f, content: editorContent } : f
+    );
+    setFiles(updatedFiles);
+    alert(`Saved changes to ${activeFile.name}`);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'txt';
+      let language = 'plaintext';
+      
+      if (extension === 'js') language = 'javascript';
+      if (extension === 'html') language = 'html';
+      if (extension === 'css') language = 'css';
+      if (extension === 'json') language = 'json';
+
+      const newFile: FileType = {
+        id: Date.now().toString(),
+        name: file.name,
+        content,
+        language
+      };
+
+      setFiles([...files, newFile]);
+      setActiveFile(newFile);
+      setEditorContent(content);
+    };
+    reader.readAsText(file);
+  };
+
+  const getLanguageClass = (language: string) => {
+    switch (language) {
+      case 'javascript': return 'text-yellow-400';
+      case 'html': return 'text-orange-500';
+      case 'css': return 'text-blue-400';
+      default: return 'text-gray-300';
+    }
+  };
+
+  return (
+    <div className={`flex flex-col h-screen ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'}`}>
+      {/* Top Bar */}
+      <div className={`flex items-center justify-between p-2 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+          <span className="font-semibold">Code Editor</span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setDarkMode(!darkMode)}
+            className={darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-200'}
+          >
+            {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        {sidebarOpen && (
+          <div className={`w-64 flex-shrink-0 ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-y-auto`}>
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="font-medium">EXPLORER</h2>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-6 w-6"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <File className="h-4 w-4" />
+                </Button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  accept=".js,.html,.css,.json,.txt"
+                />
+              </div>
+
+              {/* Folders */}
+              {folders.map(folder => (
+                <div key={folder.id} className="ml-2">
+                  <div className="flex items-center py-1">
+                    <Folder className="h-4 w-4 mr-1" />
+                    <span>{folder.name}</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Files */}
+              <div className="ml-2">
+                {files.map(file => (
+                  <div 
+                    key={file.id} 
+                    className={`flex items-center py-1 px-1 rounded cursor-pointer ${activeFile?.id === file.id ? (darkMode ? 'bg-blue-900' : 'bg-blue-100') : ''}`}
+                    onClick={() => handleFileClick(file)}
+                  >
+                    <File className="h-4 w-4 mr-1" />
+                    <span className={getLanguageClass(file.language)}>{file.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Tabs */}
+          {activeFile && (
+            <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-gray-100'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+              {files.map(file => (
+                <div 
+                  key={file.id} 
+                  className={`flex items-center px-3 py-2 border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'} cursor-pointer ${activeFile.id === file.id ? (darkMode ? 'bg-gray-900' : 'bg-white') : ''}`}
+                  onClick={() => handleFileClick(file)}
+                >
+                  <span className={getLanguageClass(file.language)}>{file.name}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 ml-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (activeFile.id === file.id) {
+                        setActiveFile(files.find(f => f.id !== file.id) || null);
+                      }
+                      setFiles(files.filter(f => f.id !== file.id));
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Editor */}
+          <div className="flex-1 overflow-auto relative">
+            {activeFile ? (
+              <div className="absolute inset-0">
+                {/* Line numbers */}
+                <div 
+                  className={`absolute left-0 top-0 bottom-0 w-10 ${darkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'} overflow-hidden`}
+                >
+                  {editorContent.split('\n').map((_, i) => (
+                    <div key={i} className="text-right pr-2">
+                      {i + 1}
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Textarea editor (simulating Monaco) */}
+                <textarea
+                  value={editorContent}
+                  onChange={handleEditorChange}
+                  className={`absolute left-10 right-0 top-0 bottom-0 w-full p-2 font-mono text-sm ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900'} outline-none resize-none`}
+                  spellCheck="false"
+                  style={{ lineHeight: '1.5' }}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center p-4">
+                  <File className="h-12 w-12 mx-auto mb-4" />
+                  <p className="text-lg">No file selected</p>
+                  <p className="text-sm opacity-70 mt-2">Open a file from the sidebar or upload a new one</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Status Bar */}
+          <div className={`flex items-center justify-between px-3 py-1 text-xs ${darkMode ? 'bg-blue-600 text-white' : 'bg-blue-500 text-white'}`}>
+            <div>
+              {activeFile && (
+                <span className="flex items-center">
+                  <span className="mr-2">{activeFile.language.toUpperCase()}</span>
+                  <span>{activeFile.name}</span>
+                </span>
+              )}
+            </div>
+            <div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-6 text-white hover:bg-blue-700"
+                onClick={handleSave}
+              >
+                <Save className="h-3 w-3 mr-1" />
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
